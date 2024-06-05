@@ -52,7 +52,7 @@ RUN pip install -r /app/api/requirements.txt && \
     cp /app/nginx/nginx.conf /etc/nginx/nginx.conf
 
 RUN cd /app/bot && \
-    npm install && \
+    npm install -g npm@10.8.1 && \
     npm run build
 
 CMD ["/usr/bin/supervisord", "-c", "/app/supervisord.conf"]
