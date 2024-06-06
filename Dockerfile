@@ -7,7 +7,7 @@ RUN apt-get update && \
         gnupg2 && \
     curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
     curl https://packages.microsoft.com/config/debian/11/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
-    curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && \
+    curl -fsSL https://deb.nodesource.com/setup_current.x | bash - && \
     apt-get update -y && \
     ACCEPT_EULA=Y apt-get install -y \
         msodbcsql17 \
