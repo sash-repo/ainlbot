@@ -7,7 +7,7 @@ RUN apt-get update && \
         gnupg2 && \
     curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
     curl https://packages.microsoft.com/config/debian/11/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
-    curl -fsSL https://deb.nodesource.com/setup_current.x | bash - && \
+    curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && \
     apt-get update -y && \
     ACCEPT_EULA=Y apt-get install -y \
         msodbcsql17 \
@@ -27,22 +27,22 @@ RUN apt-get update && \
 # optional: for unixODBC development headers
 # optional: kerberos library for debian-slim distributions
 
-#ARG DataSource
-#ENV DataSource=${DataSource}
-#ARG DbUser
-#ENV DbUser=${DbUser}
-#ARG DbPassword
-#ENV DbPassword=${DbPassword}
-#ARG DbName
-#ENV DbName=${DbName}
+ARG DataSource
+ENV DataSource=${DataSource}
+ARG DbUser
+ENV DbUser=${DbUser}
+ARG DbPassword
+ENV DbPassword=${DbPassword}
+ARG DbName
+ENV DbName=${DbName}
 #ARG DbPort
 #ENV DbPort=${DbPort}
-#ARG ApiEndPoint
-#ENV ApiEndPoint=${ApiEndPoint}
-#ARG ApiToken
-#ENV ApiToken=${ApiToken}
-#ARG StaticEndPoint
-#ENV StaticEndPoint=${StaticEndPoint}
+ARG ApiEndPoint
+ENV ApiEndPoint=${ApiEndPoint}
+ARG ApiToken
+ENV ApiToken=${ApiToken}
+ARG StaticEndPoint
+ENV StaticEndPoint=${StaticEndPoint}
 
 WORKDIR /app
 COPY . /app/
@@ -52,7 +52,7 @@ RUN pip install -r /app/api/requirements.txt && \
     cp /app/nginx/nginx.conf /etc/nginx/nginx.conf
 
 RUN cd /app/bot && \
-    npm install -g npm@10.8.1 && \
+    npm install && \
     npm run build
 
 CMD ["/usr/bin/supervisord", "-c", "/app/supervisord.conf"]
