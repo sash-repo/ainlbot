@@ -35,14 +35,26 @@ ARG DbPassword
 ENV DbPassword=${DbPassword}
 ARG DbName
 ENV DbName=${DbName}
-#ARG DbPort
-#ENV DbPort=${DbPort}
+ARG DbPort
+ENV DbPort=${DbPort}
 ARG ApiEndPoint
 ENV ApiEndPoint=${ApiEndPoint}
 ARG ApiToken
 ENV ApiToken=${ApiToken}
 ARG StaticEndPoint
 ENV StaticEndPoint=${StaticEndPoint}
+
+ARG FromYear
+ENV FromYear=${FromYear}
+ARG ToYear
+ENV ToYear=${ToYear}
+
+ARG EmailAddress
+ENV EmailAddress=${EmailAddress}
+ARG EmailPassword
+ENV EmailPassword=${EmailPassword}
+ARG RecipientEmail
+ENV RecipientEmail=${RecipientEmail}
 
 WORKDIR /app
 COPY . /app/
@@ -54,5 +66,8 @@ RUN pip install -r /app/api/requirements.txt && \
 RUN cd /app/bot && \
     npm install && \
     npm run build
+
+# Ensure the supervisord configuration is copied
+COPY supervisord.conf /app/supervisord.conf
 
 CMD ["/usr/bin/supervisord", "-c", "/app/supervisord.conf"]
