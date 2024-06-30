@@ -406,12 +406,12 @@ async def main():
     while True:
         try:
             await perform_anomaly_check()
-            await asyncio.sleep(60) # Repeat every hour
+            await asyncio.sleep(3600 * 4) # Repeat every hour
         except asyncio.CancelledError:
             break
         except Exception as e:
             logging.error(f"Error in main loop: {e}")
-            await asyncio.sleep(60)
+            await asyncio.sleep(3600 * 4)
 
 
 if __name__ == "__main__":
