@@ -132,6 +132,9 @@ async def send_nl_prompt(kpi_arg):
 
 def calculate_corridors(df):
     try:
+
+        sensetivity = float(os.getenv('BoundrySensetivity', '2'))
+
         df['value'] = df['value'].astype(float)
 
         if df['value'].empty:
@@ -144,8 +147,8 @@ def calculate_corridors(df):
         logging.info(f"Mean value: {mean_value}, Standard deviation: {std_value}")
         
         # Define corridors as ±2 standard deviations from the mean
-        lower_bound = mean_value - 2 * std_value
-        upper_bound = mean_value + 2 * std_value
+        lower_bound = mean_value - sensetivity * std_value
+        upper_bound = mean_value + sensetivity * std_value
         
         return lower_bound, upper_bound
     except Exception as e:
@@ -336,8 +339,9 @@ async def perform_anomaly_check():
                     # Form message to send user if anomalies have been detected
                     if not anomalies.empty:
                         # Generate prompt and send to GPT
-                        system_message = "You are an intelligent data analyzer who will be given trusted data and comparison data. You must give potential reasons to why anomalies are detected in the data based on their KPI names."
-                        user_message = f"KPI: {kpi}, Trusted Data: {trusted_df}, Comparison Data: {comparison_df}, Anomalies Detected: {anomalies}"
+                        system_message = os.getenv('SystemMessage', 'You are an intelligent data analyzer who will be given trusted data and comparison data. You must give potential reasons to why anomalies are detected in the data based on their KPI names.')
+                        
+                        user_message = f"KPI: {kpi}, Trusted Data: {trusted_df}, Comparison Data: {comparison_df}, Anomalies Detected: {anomalies}, Sensetivity: {os.getenv('BoundrySensetivity' '2.0')}"
 
                         response = await get_response_openai(system_message, user_message)
                         response_message = response['choices'][0]['message']['content']
@@ -402,7 +406,7 @@ def send_email(anomaly_messages):
 
 
 async def main():
-    # Script will run in background with asyncio and repeat every 1 hour
+    # Script will run in background with asyncio and repeat every 1 hour (3600 seconds)
     while True:
         try:
             await perform_anomaly_check()

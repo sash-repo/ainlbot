@@ -48,6 +48,8 @@ ARG FromYear
 ENV FromYear=${FromYear}
 ARG ToYear
 ENV ToYear=${ToYear}
+ARG BoundrySensetivity
+ENV BoundrySensetivity=${BoundrySensetivity}
 
 ARG EmailAddress
 ENV EmailAddress=${EmailAddress}
@@ -55,6 +57,19 @@ ARG EmailPassword
 ENV EmailPassword=${EmailPassword}
 ARG RecipientEmail
 ENV RecipientEmail=${RecipientEmail}
+
+ARG OpenAiAPI
+ENV OpenAiAPI=${OpenAiAPI}
+ARG OpenAiBase
+ENV OpenAiBase=${OpenAiBase}
+ARG OpenAiType
+ENV OpenAiType=${OpenAiType}
+ARG OpenAiVersion
+ENV OpenAiVersion=${OpenAiVersion}
+ARG OpenAiName
+ENV OpenAiName=${OpenAiName}
+ARG SystemMessage
+ENV SystemMessage=${SystemMessage}
 
 WORKDIR /app
 COPY . /app/
