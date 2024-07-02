@@ -247,10 +247,10 @@ def generate_graph(trusted_df, comparison_df, kpi, anomalies, lower_bound, upper
             # Save the figure as an HTML file
             app_name = os.getenv('StaticEndPoint')
             file_name = f"pio_{kpi}_{datetime.now().strftime('%Y%m%d%H%M%S')}.html"
-            file_path = os.path.join(app_name, "bot", "static", file_name)
+            file_path = '/var/www/html/bot/static/{}'.format(file_name)
             fig.write_html(file_path)
 
-            url = f'{app_name}/bot/static/{file_name}'
+            url = '{}/bot/static/{}'.format(app_name, file_name)
             return img_buf, url
         
         except Exception as e:
