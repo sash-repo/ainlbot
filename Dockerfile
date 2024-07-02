@@ -58,6 +58,9 @@ ENV EmailPassword=${EmailPassword}
 ARG RecipientEmail
 ENV RecipientEmail=${RecipientEmail}
 
+ARG AzureAppName
+ENV AzureAppName=${AzureAppName}
+
 ARG OpenAiAPI
 ENV OpenAiAPI=${OpenAiAPI}
 ARG OpenAiBase
@@ -70,6 +73,9 @@ ARG OpenAiName
 ENV OpenAiName=${OpenAiName}
 ARG SystemMessage
 ENV SystemMessage=${SystemMessage}
+
+ARG Frequency
+ENV Frequency=${Frequency}
 
 WORKDIR /app
 COPY . /app/

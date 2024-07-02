@@ -174,75 +174,95 @@ def reindex_months(df):
 
 
 def generate_graph(trusted_df, comparison_df, kpi, anomalies, lower_bound, upper_bound):
+    try:
+        to_year = int(os.getenv('ToYear'))
+        from_year = int(os.getenv('FromYear'))
 
-    to_year = int(os.getenv('ToYear'))
-    from_year = int(os.getenv('FromYear'))
+        # Interpolate missing values in DataFrames
+        trusted_df = trusted_df.interpolate(method='linear')
+        comparison_df = comparison_df.interpolate(method='linear')
 
-    # Interpolate missing values in DataFrames
-    trusted_df = trusted_df.interpolate(method='linear')
-    comparison_df = comparison_df.interpolate(method='linear')
+        # Generate a graph reflecting trusted data and anomalous data
+        x = trusted_df['month'].tolist()
+        x_rev = x[::-1]
 
-    # Generate a graph reflecting trusted data and anomalous data
-    x = trusted_df['month'].tolist()
-    x_rev = x[::-1]
+        y1 = trusted_df['value'].tolist()
+        y2 = comparison_df['value'].tolist()
+        anomaly_points = comparison_df[comparison_df['value'].isin(anomalies['value'])]
 
-    y1 = trusted_df['value'].tolist()
-    y2 = comparison_df['value'].tolist()
-    anomaly_points = comparison_df[comparison_df['value'].isin(anomalies['value'])]
+        upper_bound_list = [upper_bound] * len(x)
+        lower_bound_list = [lower_bound] * len(x)
+        lower_bound_rev = lower_bound_list[::-1]
 
-    upper_bound_list = [upper_bound] * len(x)
-    lower_bound_list = [lower_bound] * len(x)
-    lower_bound_rev = lower_bound_list[::-1]
+        fig = go.Figure()
 
-    fig = go.Figure()
+        # Shaded area for trusted corridors
+        fig.add_trace(go.Scatter(
+            x=x + x_rev, y=upper_bound_list + lower_bound_rev,
+            fill='toself',
+            fillcolor='rgba(48, 110, 134, 0.2)',
+            line_color='rgba(255,255,255,0)',
+            name='Upper & lower bounds',
+        ))
 
-    # Shaded area for trusted corridors
-    fig.add_trace(go.Scatter(
-        x=x + x_rev, y=upper_bound_list + lower_bound_rev,
-        fill='toself',
-        fillcolor='rgba(48, 110, 134, 0.2)',
-        line_color='rgba(255,255,255,0)',
-        name='Upper & lower bounds',
-    ))
+        # Trusted line
+        fig.add_trace(go.Scatter(
+            x=x, y=y1,
+            line_color='rgb(0,100,80)',
+            name=f'{from_year} - {to_year}',
+            mode='lines',
+            line={'dash': 'dash'}
+        ))
 
-    # Trusted line
-    fig.add_trace(go.Scatter(
-        x=x, y=y1,
-        line_color='rgb(0,100,80)',
-        name=f'{from_year} - {to_year}',
-        mode='lines',
-        line={'dash': 'dash'}
-    ))
+        # Comparison line
+        fig.add_trace(go.Scatter(
+            x=x, y=y2,
+            line_color='rgb(0,176,246)',
+            name=f"{kpi}",
+        ))
 
-    # Comparison line
-    fig.add_trace(go.Scatter(
-        x=x, y=y2,
-        line_color='rgb(0,176,246)',
-        name=f"{kpi}",
-    ))
+        # Anomaly points
+        fig.add_trace(go.Scatter(
+            x=anomaly_points['month'], y=anomaly_points['value'],
+            mode='markers',
+            marker=dict(color='red', size=10),
+            name='Anomalies',
+        ))
 
-    # Anomaly points
-    fig.add_trace(go.Scatter(
-        x=anomaly_points['month'], y=anomaly_points['value'],
-        mode='markers',
-        marker=dict(color='red', size=10),
-        name='Anomalies',
-    ))
+        timeframe = datetime.now().year - (to_year - from_year)
 
-    timeframe = datetime.now().year - (to_year - from_year)
+        fig.update_layout(
+            title=f"{kpi.title()} from {timeframe} to Present",
+            xaxis_title="Month",
+            yaxis_title="Value",
+            legend_title="Legend",
+            template="plotly_white"
+        )
 
-    fig.update_layout(
-        title=f"{kpi.title()} from {timeframe} to Present",
-        xaxis_title="Month",
-        yaxis_title="Value",
-        legend_title="Legend",
-        template="plotly_white"
-    )
+        img_buf = BytesIO()
+        fig.write_image(img_buf, format='png')
+        img_buf.seek(0)
 
-    img_buf = BytesIO()
-    fig.write_image(img_buf, format='png')
-    img_buf.seek(0)
-    return img_buf
+        try:
+            # Save the figure as an HTML file
+            app_name = os.getenv('AzureAppName')
+            static_dir = os.getenv('WEBAPP_STORAGE_HOME', '.')
+            file_name = f"pio_{kpi}_{datetime.now().strftime('%Y%m%d%H%M%S')}.html"
+            file_path = os.path.join(static_dir, file_name)
+            fig.write_html(file_path)
+
+            url = f"https://{app_name}.azurewebsites.net/bot/static/{file_name}"
+
+            return img_buf, url
+        
+        except Exception as e:
+            logging.error(f"Failed to generate URL: {e}")
+            return img_buf, None
+    
+    except Exception as e:
+        logging.error(f"Error in generate_graph: {e}")
+        return None, None
+
 
 
 async def get_response_openai(system_message, messages):
@@ -347,12 +367,14 @@ async def perform_anomaly_check():
                         response_message = response['choices'][0]['message']['content']
 
                         # Generate graph image
-                        graph = generate_graph(trusted_df, comparison_df, kpi, anomalies, lower_bound, upper_bound)
+                        graph, url = generate_graph(trusted_df, comparison_df, kpi, anomalies, lower_bound, upper_bound)
+                        logging.info("Generated graph and URL: %s, %s", graph, url)
 
                         # Append anomaly message and graph together, title message, GPT response, and graph image
                         anomaly_data = (f'There are anomalies with argument: "{kpi}" in table: "{table["name"]}" from datasource: "{data_source}"',
                                         response_message,
-                                        graph)
+                                        graph,
+                                        url)
                         anomaly_messages.append(anomaly_data)
 
         if anomaly_messages:
@@ -375,24 +397,23 @@ def send_email(anomaly_messages):
         msg['From'] = EMAIL_ADDRESS
         msg['To'] = RECIPIENT_EMAIL
 
-        n = 1
+        n = 1 # n - for giving a unique name to graph images
         html_content = "<h3>Anomaly Detection Report</h3>"
         for message in anomaly_messages:
-            html_content += "<p>"
-            html_content += f"{message[0]}<br>"
-            html_content += f"{markdown.markdown(message[1])}<br>"
-            html_content += "</p>"
-
+            # Add image to email
             img_data = message[2].getvalue()
             img = MIMEImage(img_data, 'png')
             img.add_header('Content-ID', f'<anomaly_graph_{n}>')  # Content-ID for inline images
             img.add_header('Content-Disposition', 'inline', filename=f'anomaly_graph_{n}.png')
             msg.attach(img)
-
-            # Add image tag in HTML content
-            html_content += f"<img src='cid:anomaly_graph_{n}'>"
+            html_content += f"<img src='cid:anomaly_graph_{n}'><br>"
+            html_content += f"<a href='{message[3]}'>Open Interactive Chart</a><br>"
+            # Add text to email
+            html_content += "<p>"
+            html_content += f"{message[0]}<br>"
+            html_content += f"{markdown.markdown(message[1])}<br>"
+            html_content += "</p>"
             n += 1
-
 
         # Add HTML content to email
         msg.attach(MIMEText(html_content, 'html'))
@@ -406,16 +427,17 @@ def send_email(anomaly_messages):
 
 
 async def main():
-    # Script will run in background with asyncio and repeat every 1 hour (3600 seconds)
+    # Script will run in background with asyncio and repeat as per user's "Frequency" (in days) environment variable (86400 = 1 day) 
     while True:
+        days = int(os.getenv('Frequency', '1'))
         try:
             await perform_anomaly_check()
-            await asyncio.sleep(3600 * 4) # Repeat every hour
+            await asyncio.sleep(86400 * days) # Repeat every n days
         except asyncio.CancelledError:
             break
         except Exception as e:
             logging.error(f"Error in main loop: {e}")
-            await asyncio.sleep(3600 * 4)
+            await asyncio.sleep(86400 * days)
 
 
 if __name__ == "__main__":
