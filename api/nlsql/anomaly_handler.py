@@ -250,7 +250,7 @@ def generate_graph(trusted_df, comparison_df, kpi, anomalies, lower_bound, upper
             file_path = os.path.join(app_name, file_name)
             fig.write_html(file_path)
 
-            url = f'{app_name}/bot/static/{file_name}.html'
+            url = f'{app_name}/bot/static/{file_name}'
             return img_buf, url
         
         except Exception as e:
