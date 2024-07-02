@@ -245,14 +245,12 @@ def generate_graph(trusted_df, comparison_df, kpi, anomalies, lower_bound, upper
 
         try:
             # Save the figure as an HTML file
-            app_name = os.getenv('AzureAppName')
-            static_dir = os.getenv('WEBAPP_STORAGE_HOME', '.')
+            app_name = os.getenv('StaticEndPoint')
             file_name = f"pio_{kpi}_{datetime.now().strftime('%Y%m%d%H%M%S')}.html"
-            file_path = os.path.join(static_dir, file_name)
+            file_path = os.path.join(app_name, file_name)
             fig.write_html(file_path)
 
-            url = f"https://{app_name}.azurewebsites.net/bot/static/{file_name}"
-
+            url = f'{app_name}/bot/static/{file_name}.html'
             return img_buf, url
         
         except Exception as e:
