@@ -21,3 +21,5 @@ azure-identity==1.14.0
 asyncpg==0.25.0
 openai==0.28.0
 markdown==3.4.4
+scipy==1.7.3
+numpy==1.21.6
