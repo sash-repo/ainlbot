@@ -4,7 +4,7 @@ import sys
 import asyncio
 import pandas as pd
 import numpy as np
-from scipy import signal
+from scipy.interpolate import UnivariateSpline
 from datetime import datetime
 import logging
 
@@ -158,7 +158,7 @@ def clean_dataframe(df):
     return df
 
 
-def calculate_corridors(df, window_size=None):
+def calculate_corridors(df, window_size=3):
     '''Function to calculate the upper and lower bounds for anomaly detection
        - if corridors_mode == 2 returns a nested list of lower and upper bounds for each month
        - if corridors_mode == 1 returns a list containing lower and upper boundaries'''
@@ -167,37 +167,47 @@ def calculate_corridors(df, window_size=None):
         boundary_sensitivity = float(os.getenv('BoundarySensitivity', '2.0'))
 
         if corridors_mode == 2:
-            # Group by month and calculate the mean and std values
+            # Group by month and calculate the mean and std value
             monthly_stats = df.groupby('month')['value'].agg(['mean', 'std']).reset_index()
 
             logging.info(f'\n\nmonthly stats df: \n\n {monthly_stats}\n\n\n')
 
-            window_size = 3
-
             # Add padding wrap-around for edge cases
-            padding = monthly_stats.tail(window_size-1).copy()
-            padding['month'] -= 12
-            padded_stats = pd.concat([padding, monthly_stats, monthly_stats.head(window_size-1).copy()])
-
-            # Calculate rolling mean and standard deviation
-            padded_stats['rolling_mean'] = padded_stats['mean'].rolling(window=window_size, center=True).mean()
-            padded_stats['rolling_std'] = padded_stats['mean'].rolling(window=window_size, center=True).std()
-
+            previous_december = monthly_stats.iloc[-1:].copy()
+            previous_december['month'] = 0
+            next_january = monthly_stats.iloc[:1].copy()
+            next_january['month'] = 13
+            
+            padded_stats = pd.concat([previous_december, monthly_stats, next_january]).reset_index(drop=True)
+            
             logging.info(f'\n\npadded stats df: \n\n {padded_stats}\n\n\n')
 
-            # Remove the padding after calculating edge cases
-            monthly_stats['rolling_mean'] = padded_stats['rolling_mean'][window_size-1:-(window_size-1)].reset_index(drop=True)
-            monthly_stats['rolling_std'] = padded_stats['rolling_std'][window_size-1:-(window_size-1)].reset_index(drop=True)
+            # Calculate rolling mean and standard deviation
+            padded_stats['rolling_mean'] = padded_stats['mean'].rolling(window=window_size, center=True, min_periods=1).mean()
+            padded_stats['rolling_std'] = padded_stats['mean'].rolling(window=window_size, center=True, min_periods=1).std()
 
-            # Define corridors as ±boundary_sensitivity standard deviations from the rolling mean
-            monthly_stats['lower_bound'] = monthly_stats['rolling_mean'] - boundary_sensitivity * monthly_stats['rolling_std']
-            monthly_stats['upper_bound'] = monthly_stats['rolling_mean'] + boundary_sensitivity * monthly_stats['rolling_std']
+            logging.info(f'\n\nrolling stats df: \n\n {padded_stats}\n\n\n')
 
-            logging.info(f'\n\nmonthly stats df: \n\n {monthly_stats}\n\n\n')
+            padded_stats['lower_bound'] = padded_stats['rolling_mean'] - boundary_sensitivity * padded_stats['rolling_std']
+            padded_stats['upper_bound'] = padded_stats['rolling_mean'] + boundary_sensitivity * padded_stats['rolling_std']
+
+            # Smooth the upper and lower bounds using UnivariateSpline
+            x = padded_stats['month'].values
+            y_lower = padded_stats['lower_bound'].values
+            y_upper = padded_stats['upper_bound'].values
+            lower_spline = UnivariateSpline(x, y_lower, k=3, s=None)
+            upper_spline = UnivariateSpline(x, y_upper, k=3, s=None)
+
+            # Remove padding rows
+            padded_stats = padded_stats[(padded_stats['month'] >= 1) & (padded_stats['month'] <= 12)].reset_index(drop=True)
+
+            # Replace the lower and upper bounds with the smoothed values
+            padded_stats['lower_bound'] = lower_spline(padded_stats['month'])
+            padded_stats['upper_bound'] = upper_spline(padded_stats['month'])
 
             # Create a nested list with the bounds for each month
-            anomaly_bounds = monthly_stats[['lower_bound', 'upper_bound']].values.tolist()
-            
+            anomaly_bounds = padded_stats[['lower_bound', 'upper_bound']].values.tolist()
+
             return anomaly_bounds
 
         # Calculate mean and standard deviation
@@ -250,7 +260,7 @@ def calculate_monthly_averages(df):
         return monthly_averages
     
     except Exception as e:
-        print(f'Failed to calculate monthly averages: {e}')
+        logging.info(f'Failed to calculate monthly averages: {e}')
         return pd.DataFrame()  # Return an empty DataFrame in case of error
 
 
@@ -346,7 +356,7 @@ def generate_graph(trusted_df, comparison_df, anomalies, corridors, kpi, fltr=''
             name='Anomalies',
         ))
 
-        timeframe = datetime.now().year - (to_year - from_year)
+        timeframe = datetime.now().year - 1
 
         fig.update_layout(
             title = f"{kpi.title()} from {timeframe} to Present" if not fltr else f"{kpi.title()} filtered by {fltr}, from {timeframe} to Present",
