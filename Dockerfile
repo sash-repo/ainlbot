@@ -48,6 +48,8 @@ ARG FromYear
 ENV FromYear=${FromYear}
 ARG ToYear
 ENV ToYear=${ToYear}
+ARG CorridorsMode
+ENV CorridorsMode=${CorridorsMode}
 ARG BoundrySensetivity
 ENV BoundrySensetivity=${BoundrySensetivity}
 

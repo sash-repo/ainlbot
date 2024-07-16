@@ -89,16 +89,23 @@ async def send_nl_prompt(kpi_arg, fltr=''):
         to_year = int(os.getenv('ToYear'))
         override = False # Override for corridors settings if user does not provide enough data for setting 2
 
-        if corridors_mode == 2 and to_year - from_year < 2:
+        # List of years to search
+        years = []
+        current = from_year
+        while current < to_year:
+            years.append(current)
+            current += 1
+        years.append(to_year)
+
+        if corridors_mode == 2 and to_year - from_year < 1:
             logging.error("You must have at least 2 full years' of trusted data to use seasonal corridors mode. Defulting to standard mode.")
             override = True
 
         queries = []
         if corridors_mode == 2 and not override:
             # Gather the NL messages for each year
-            year = from_year
             messages = []
-            while year <= to_year:
+            for year in years:
                 if fltr:
                     message = f'{kpi_arg} in {year} by month for {fltr}'
                 else:
@@ -117,9 +124,9 @@ async def send_nl_prompt(kpi_arg, fltr=''):
         elif corridors_mode == 1 or override:
             # If corridors_mode == 1
             if fltr:
-                message = f'{kpi_arg} between {from_year} and {to_year} by month for {fltr}'
+                message = f'{kpi_arg}, {from_year} and {to_year} by month for {fltr}'
             else:
-                message = f'{kpi_arg} between {from_year} and {to_year} by month'
+                message = f'{kpi_arg}, {from_year} and {to_year} by month'
             response = await api_post(message)
 
             if response and 'sql' in response and ('SUM' in response['sql'] or 'AVG' in response['sql']):
@@ -129,9 +136,9 @@ async def send_nl_prompt(kpi_arg, fltr=''):
         current_year = datetime.now().year
         from_year = current_year - 1
         if fltr:
-            message = f'{kpi_arg} between {from_year} and {current_year} by month for {fltr}'
+            message = f'{kpi_arg}, {from_year} and {current_year} by month for {fltr}'
         else:
-            message = f'{kpi_arg} between {from_year} and {current_year} by month'
+            message = f'{kpi_arg}, {from_year} and {current_year} by month'
         response = await api_post(message)
         comparison_query = response['sql']
 
@@ -255,8 +262,6 @@ def calculate_monthly_averages(df):
             df['month'] = df.index.month
         # Calculate the average 'value' for each month (1 to 12)
         monthly_averages = df.groupby('month')['value'].mean().reset_index()
-        # Rename columns for clarity
-        monthly_averages.columns = ['month', 'value']
         return monthly_averages
     
     except Exception as e:
@@ -326,7 +331,7 @@ def generate_graph(trusted_df, comparison_df, anomalies, corridors, kpi, fltr=''
         # Shaded area for trusted corridors
         fig.add_trace(go.Scatter(
             x=x + x_rev, y=upper_bound_list + lower_bound_rev,
-            fill='toself',
+            fill='tonexty',
             fillcolor='rgba(48, 110, 134, 0.2)',
             line_color='rgba(255,255,255,0)',
             name='Upper & lower bounds',
@@ -337,7 +342,6 @@ def generate_graph(trusted_df, comparison_df, anomalies, corridors, kpi, fltr=''
             x=x, y=y1,
             line_color='rgb(0,100,80)',
             name=f'{kpi} ({from_year} - {to_year})',
-            mode='lines',
             line={'dash': 'dash'}
         ))
 
@@ -356,10 +360,8 @@ def generate_graph(trusted_df, comparison_df, anomalies, corridors, kpi, fltr=''
             name='Anomalies',
         ))
 
-        timeframe = datetime.now().year - 1
-
         fig.update_layout(
-            title = f"{kpi.title()} from {timeframe} to Present" if not fltr else f"{kpi.title()} filtered by {fltr}, from {timeframe} to Present",
+            title = f"{kpi.title()} from {datetime.now().year - 1} to Present" if not fltr else f"{kpi.title()} filtered by {fltr}, from {datetime.now().year - 1} to Present",
             xaxis_title="Month",
             yaxis_title="Value",
             legend_title="Legend",
@@ -423,16 +425,21 @@ async def gather_anomaly_data(data_source, table, kpi, fltr, trusted_sql, compar
         
         logging.info(f'\n\nCorridors: \n\n{corridors}\n\n\n')
 
+        # Take the last year of trusted data (for use in graph)
         if corridors_mode == 2:
-            trusted_df = calculate_monthly_averages(trusted_df)
+            trusted_df = trusted_df.tail(12)
+
+        logging.info(f'\n\nTrusted DF after formatting (for use in graph): \n\n{trusted_df}\n\n\n')
 
         # Look for anomalies in comparison data
         anomalies = detect_anomalies(comparison_df, corridors)
+
+        logging.info(f'\n\nAnomalies: \n\n{anomalies}\n\n\n')
+
         if anomalies.empty:
             logging.error('detect_anomalies() has returned a null value')
-            return None
-        
-        logging.info(f'\n\nAnomalies: \n\n{anomalies}\n\n\n')
+            graph, url = generate_graph(trusted_df, comparison_df, anomalies, corridors, kpi, fltr)
+            
 
         # Generate prompt and send to GPT
         system_message = os.getenv('SystemMessage', 'You are an intelligent data analyzer who will be given trusted data and comparison data. You must give potential reasons to why anomalies are detected in the data based on their KPI names.')
