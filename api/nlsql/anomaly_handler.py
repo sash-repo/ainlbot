@@ -133,11 +133,11 @@ async def send_nl_prompt(kpi_arg, fltr=''):
         
         # Get SQL for comparison data
         current_year = datetime.now().year
-        from_year = current_year - 1
+        # from_year = current_year - 1
         if fltr:
-            message = f'{kpi_arg}, {from_year} and {current_year} by month for {fltr}'
+            message = f'{kpi_arg}, {current_year} by month for {fltr}'
         else:
-            message = f'{kpi_arg}, {from_year} and {current_year} by month'
+            message = f'{kpi_arg}, {current_year} by month'
         response = await api_post(message)
         comparison_query = response['sql']
 
