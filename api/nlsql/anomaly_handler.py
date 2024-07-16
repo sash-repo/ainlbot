@@ -117,7 +117,6 @@ async def send_nl_prompt(kpi_arg, fltr=''):
             responses = await asyncio.gather(*(api_post(msg) for msg in messages))
             if not responses or not responses[0]['sql']:
                 logging.error(f'Unable to form SQL query for this KPI: {kpi_arg}')
-            logging.info(f'\n\nResponses: \n\n{responses}\n\n\n')
 
             queries = [response['sql'] for response in responses if 'SUM' in response['sql'] or 'AVG' in response['sql']]
 
@@ -145,7 +144,6 @@ async def send_nl_prompt(kpi_arg, fltr=''):
         logging.info(f'\n\nYEARS:\n\n{current_year}\n\n{from_year}\n\n\n')
 
         logging.info(f'\n\nNL Message: \n\n{message}\n\n\n')
-        logging.info(f"\n\nResponse: \n\n{response['sql']}\n\n\n")
 
         return queries, comparison_query
     
