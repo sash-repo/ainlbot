@@ -436,8 +436,7 @@ async def gather_anomaly_data(data_source, table, kpi, fltr, trusted_sql, compar
 
         if anomalies.empty:
             logging.error('detect_anomalies() has returned a null value')
-            graph, url = generate_graph(trusted_df, comparison_df, anomalies, corridors, kpi, fltr)
-            
+            return None
 
         # Generate prompt and send to GPT
         system_message = os.getenv('SystemMessage', 'You are an intelligent data analyzer who will be given trusted data and comparison data. You must give potential reasons to why anomalies are detected in the data based on their KPI names.')
