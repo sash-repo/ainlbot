@@ -329,14 +329,14 @@ def generate_graph(trusted_df, comparison_df, anomalies, corridors, kpi, fltr=''
             fill='tonexty',
             fillcolor='rgba(48, 110, 134, 0.2)',
             line_color='rgba(255,255,255,0)',
-            name='Upper & lower bounds',
+            name=f'Upper & Lower Bounds ({from_year} - {to_year})',
         ))
 
         # Trusted line
         fig.add_trace(go.Scatter(
             x=x, y=y1,
             line_color='rgb(0,100,80)',
-            name=f'{kpi} ({from_year} - {to_year})',
+            name=f'{kpi} ({to_year})',
             line={'dash': 'dash'}
         ))
 
@@ -344,7 +344,7 @@ def generate_graph(trusted_df, comparison_df, anomalies, corridors, kpi, fltr=''
         fig.add_trace(go.Scatter(
             x=x, y=y2,
             line_color='rgb(0,176,246)',
-            name=f"{kpi} ({datetime.now().year - 1} - Present)",
+            name=f"{kpi} ({datetime.now().year})",
         ))
 
         # Anomaly points
@@ -356,7 +356,7 @@ def generate_graph(trusted_df, comparison_df, anomalies, corridors, kpi, fltr=''
         ))
 
         fig.update_layout(
-            title = f"{kpi.title()} from {datetime.now().year - 1} to Present" if not fltr else f"{kpi.title()} filtered by {fltr}, from {datetime.now().year - 1} to Present",
+            title = f"{kpi.title()} for {datetime.now().year}" if not fltr else f"{kpi.title()}, filtered by {fltr} for {datetime.now().year}",
             xaxis_title="Month",
             yaxis_title="Value",
             legend_title="Legend",
@@ -418,7 +418,7 @@ async def gather_anomaly_data(data_source, table, kpi, fltr, trusted_sql, compar
             corridors = calculate_corridors(avg_trusted_df)
         else:
             corridors = calculate_corridors(trusted_df)
-            
+
         if not corridors:
             logging.error('calculate_corridors() has returned a null value')
             return None
@@ -531,7 +531,7 @@ async def perform_anomaly_check():
     
     finally:
         if conn:
-            conn.close()    
+            await conn.close() 
 
 
 def send_email(anomaly_messages, tables):
