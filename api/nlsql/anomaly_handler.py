@@ -31,7 +31,16 @@ EMAIL_ADDRESS = os.getenv('EmailAddress', '')
 EMAIL_PASSWORD = os.getenv('EmailPassword', '') # User must create app password for gmail/outlook 2FA account
 RECIPIENT_EMAIL = os.getenv('RecipientEmail', '')
 
-corridors_mode = int(os.getenv('CorridorsMode', '1')) # Get user's corridors settings, 1 = Standard mode, 2 = Seasonal mode
+corridors_mode_input = os.getenv('CorridorsMode', '2')  # Get user's corridors settings, 1 = Standard mode, 2 = Seasonal mode
+
+mode_mapping = {
+    'standard': 1,
+    '1': 1,
+    'seasonal': 2,
+    '2': 2
+}
+
+corridors_mode = mode_mapping.get(corridors_mode_input.lower(), 2)  # Default to '2' if input is not recognized
 
 
 def get_table_data():
@@ -97,39 +106,23 @@ async def send_nl_prompt(kpi_arg, fltr=''):
             current += 1
         years.append(to_year)
 
-        if corridors_mode == 2 and to_year - from_year < 1:
-            logging.error("You must have at least 2 full years' of trusted data to use seasonal corridors mode. Defulting to standard mode.")
-            override = True
+        # Gather the NL messages for each year
+        messages = []
+        for year in years:
+            if fltr:
+                message = f'{kpi_arg} in {year} by month for {fltr}'
+            else:
+                message = f'{kpi_arg} in {year} by month'
+            messages.append(message)
+            logging.info(message)
+            
+        # Send messages and gather relevant SQL queries
+        responses = await asyncio.gather(*(api_post(msg) for msg in messages))
+        if not responses or not responses[0]['sql']:
+            logging.error(f'Unable to form SQL query for this KPI: {kpi_arg}')
 
         queries = []
-        if corridors_mode == 2 and not override:
-            # Gather the NL messages for each year
-            messages = []
-            for year in years:
-                if fltr:
-                    message = f'{kpi_arg} in {year} by month for {fltr}'
-                else:
-                    message = f'{kpi_arg} in {year} by month'
-                messages.append(message)
-                logging.info(message)
-                year += 1
-            # Send messages and gather relevant SQL queries
-            responses = await asyncio.gather(*(api_post(msg) for msg in messages))
-            if not responses or not responses[0]['sql']:
-                logging.error(f'Unable to form SQL query for this KPI: {kpi_arg}')
-
-            queries = [response['sql'] for response in responses if 'SUM' in response['sql'] or 'AVG' in response['sql']]
-
-        elif corridors_mode == 1 or override:
-            # If corridors_mode == 1
-            if fltr:
-                message = f'{kpi_arg}, {from_year} and {to_year} by month for {fltr}'
-            else:
-                message = f'{kpi_arg}, {from_year} and {to_year} by month'
-            response = await api_post(message)
-
-            if response and 'sql' in response and ('SUM' in response['sql'] or 'AVG' in response['sql']):
-                queries = [response['sql']]
+        queries = [response['sql'] for response in responses if 'SUM' in response['sql'] or 'AVG' in response['sql']]
         
         # Get SQL for comparison data
         current_year = datetime.now().year
@@ -141,7 +134,7 @@ async def send_nl_prompt(kpi_arg, fltr=''):
         response = await api_post(message)
         comparison_query = response['sql']
 
-        logging.info(f'\n\nYEARS:\n\n{current_year}\n\n{from_year}\n\n\n')
+        logging.info(f'\n\nYEARS:\n\n{from_year}\n\n{current_year}\n\n\n')
 
         logging.info(f'\n\nNL Message: \n\n{message}\n\n\n')
 
@@ -163,7 +156,7 @@ def clean_dataframe(df):
     return df
 
 
-def calculate_corridors(df, window_size=3):
+def calculate_corridors(df, window_size=5):
     '''Function to calculate the upper and lower bounds for anomaly detection
        - if corridors_mode == 2 returns a nested list of lower and upper bounds for each month
        - if corridors_mode == 1 returns a list containing lower and upper boundaries'''
@@ -180,8 +173,12 @@ def calculate_corridors(df, window_size=3):
             # Add padding wrap-around for edge cases
             previous_december = monthly_stats.iloc[-1:].copy()
             previous_december['month'] = 0
+            previous_november = monthly_stats.iloc[-2:].copy()
+            previous_november['month'] = -1
             next_january = monthly_stats.iloc[:1].copy()
             next_january['month'] = 13
+            next_febuary = monthly_stats.iloc[:2].copy()
+            next_febuary['month'] = 14
             
             padded_stats = pd.concat([previous_december, monthly_stats, next_january]).reset_index(drop=True)
             
@@ -416,7 +413,12 @@ async def gather_anomaly_data(data_source, table, kpi, fltr, trusted_sql, compar
         logging.info(f'\n\nTrusted DF: \n\n{trusted_df}\n\n\n Comparison DF: \n\n{comparison_df}\n\n\n')
 
         # Calculate the corridors using trusted dataframe
-        corridors = calculate_corridors(trusted_df)
+        if corridors_mode == 1:
+            avg_trusted_df = calculate_monthly_averages(trusted_df)
+            corridors = calculate_corridors(avg_trusted_df)
+        else:
+            corridors = calculate_corridors(trusted_df)
+            
         if not corridors:
             logging.error('calculate_corridors() has returned a null value')
             return None
@@ -424,8 +426,7 @@ async def gather_anomaly_data(data_source, table, kpi, fltr, trusted_sql, compar
         logging.info(f'\n\nCorridors: \n\n{corridors}\n\n\n')
 
         # Take the last year of trusted data (for use in graph)
-        if corridors_mode == 2:
-            trusted_df = trusted_df.tail(12)
+        trusted_df = trusted_df.tail(12)
 
         logging.info(f'\n\nTrusted DF after formatting (for use in graph): \n\n{trusted_df}\n\n\n')
 
@@ -439,7 +440,8 @@ async def gather_anomaly_data(data_source, table, kpi, fltr, trusted_sql, compar
             return None
 
         # Generate prompt and send to GPT
-        system_message = os.getenv('SystemMessage', 'You are an intelligent data analyzer who will be given trusted data and comparison data. You must give potential reasons to why anomalies are detected in the data based on their KPI names.')
+        system_message = f"""{os.getenv('SystemMessage', 'You are an intelligent data analyzer who will be given trusted data and comparison data. You must give potential reasons to why anomalies are detected in the data based on their KPI names.')}"""
+        logging.info(system_message)
         if fltr:
             user_message = f"KPI: {kpi}, Filtered by: {fltr}, Trusted Data: {trusted_df}, Comparison Data: {comparison_df}, Anomalies Detected: {anomalies}, Sensetivity: {os.getenv('BoundarySensetivity' '2.0')}"
         else:
@@ -459,9 +461,9 @@ async def gather_anomaly_data(data_source, table, kpi, fltr, trusted_sql, compar
 
         # Create hearder message for anomaly report
         if fltr:
-            header_message = f'There are anomalies with <b>{kpi}</b>, filtered by <b>{fltr}</b> in the table <b>{table["name"]}</b>. DataSource: <b>{data_source}</b>'
+            header_message = f'<h2>There are anomalies with <b>{kpi}</b>, filtered by <b>{fltr}</b> in the table <b>{table["name"]}</b>. DataSource: <b>{data_source}</b></h2>'
         else:
-            header_message = f'There are anomalies with <b>{kpi}</b> in the table <b>{table["name"]}</b>. DataSource: <b>{data_source}</b>'
+            header_message = f'<h2>There are anomalies with <b>{kpi}</b> in the table <b>{table["name"]}</b>. DataSource: <b>{data_source}</b></h2>'
 
         # Return all anomaly data (Header message, GPT response, Graph, URL)
         anomaly_data = (header_message,
@@ -559,12 +561,10 @@ def send_email(anomaly_messages, tables):
                 html_content += f"<img src='cid:anomaly_graph_{n}'><br>"
                 html_content += f"<a href='{message[3]}'>Open Interactive Graph</a><br>"
                 # Add text to email
-                html_content += "<h2>"
                 html_content += f"{message[0]}"
-                html_content += "</h2><br>"
-                html_content += "<p>"
-                html_content += f"{markdown.markdown(message[1])}"
-                html_content += "</p><br>"
+                html_content += "<br>"
+                html_content += f"<p>{markdown.markdown(message[1])}</p>"
+                html_content += "<br>"
                 n += 1
 
         html_content += "<ul>Tables Searched:"
