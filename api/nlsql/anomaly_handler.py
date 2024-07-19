@@ -145,6 +145,22 @@ async def send_nl_prompt(kpi_arg, fltr=''):
         return None, None
 
 
+def format_results_data(data):
+    '''Function to normalize results data returned from SQL query'''
+    # Normalize datatypes
+    formatted_data = []
+    for res in data:
+        formatted_data.append((float(res[0]), int(res[1])))
+    # Order data by month & year
+    sorted_data = []
+    chunk_size = 12
+    for i in range(0, len(formatted_data), chunk_size):
+        chunk = formatted_data[i:i + chunk_size]
+        sorted_chunk = sorted(chunk, key=lambda x: x[1])
+        sorted_data.extend(sorted_chunk)
+    return sorted_data
+
+
 def clean_dataframe(df):
     if corridors_mode == 1:
         # Ensure DataFrame has all months, 1 to 12
@@ -389,16 +405,16 @@ def generate_graph(trusted_df, comparison_df, anomalies, corridors, kpi, fltr=''
 async def gather_anomaly_data(data_source, table, kpi, fltr, trusted_sql, comparison_sql, db, conn):
     '''Function to gather all anomaly data, response messages and graphs'''
     try:
-
-        if corridors_mode == 2:
-            trusted_results = []
-            for query in trusted_sql:
-                result = await connectors.do_query(db, conn, query)
-                trusted_results.extend(result)
-        else:
-            logging.info(f'Trusted SQL (Indexed):\n\n{trusted_sql[0]}')
-            trusted_results = await connectors.do_query(db, conn, trusted_sql[0])
+        # Perform SQL queries to obtain results
+        trusted_results = []
+        for query in trusted_sql:
+            result = await connectors.do_query(db, conn, query)
+            trusted_results.extend(result)
         comparison_results = await connectors.do_query(db, conn, comparison_sql)
+
+        # Format results to normalize data
+        trusted_results = format_results_data(trusted_results)
+        comparison_results = format_results_data(comparison_results)
 
         logging.info(f'\n\nTrusted Results: \n\n{trusted_results}\n\n\n Comparison Results: \n\n{comparison_results}\n\n\n')
 
@@ -407,12 +423,12 @@ async def gather_anomaly_data(data_source, table, kpi, fltr, trusted_sql, compar
         comparison_df = pd.DataFrame(comparison_results, columns=["value", "month"])
 
         # Clean data in DataFrames
-        trusted_df = clean_dataframe(trusted_df)
-        comparison_df = clean_dataframe(comparison_df)
+        #trusted_df = clean_dataframe(trusted_df)
+        #comparison_df = clean_dataframe(comparison_df)
 
         logging.info(f'\n\nTrusted DF: \n\n{trusted_df}\n\n\n Comparison DF: \n\n{comparison_df}\n\n\n')
 
-        # Calculate the corridors using trusted dataframe
+        # Calculate the corridors using trusted dataframe (use monthly averages for corridors mode 1)
         if corridors_mode == 1:
             avg_trusted_df = calculate_monthly_averages(trusted_df)
             corridors = calculate_corridors(avg_trusted_df)
@@ -531,7 +547,7 @@ async def perform_anomaly_check():
     
     finally:
         if conn:
-            await conn.close() 
+            conn.close() 
 
 
 def send_email(anomaly_messages, tables):
