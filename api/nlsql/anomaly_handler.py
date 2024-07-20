@@ -134,10 +134,6 @@ async def send_nl_prompt(kpi_arg, fltr=''):
         response = await api_post(message)
         comparison_query = response['sql']
 
-        logging.info(f'\n\nYEARS:\n\n{from_year}\n\n{current_year}\n\n\n')
-
-        logging.info(f'\n\nNL Message: \n\n{message}\n\n\n')
-
         return queries, comparison_query
     
     except Exception as e:
@@ -184,8 +180,6 @@ def calculate_corridors(df, window_size=5):
             # Group by month and calculate the mean and std value
             monthly_stats = df.groupby('month')['value'].agg(['mean', 'std']).reset_index()
 
-            logging.info(f'\n\nmonthly stats df: \n\n {monthly_stats}\n\n\n')
-
             # Add padding wrap-around for edge cases
             previous_december = monthly_stats.iloc[-1:].copy()
             previous_december['month'] = 0
@@ -197,14 +191,10 @@ def calculate_corridors(df, window_size=5):
             next_febuary['month'] = 14
             
             padded_stats = pd.concat([previous_december, monthly_stats, next_january]).reset_index(drop=True)
-            
-            logging.info(f'\n\npadded stats df: \n\n {padded_stats}\n\n\n')
 
             # Calculate rolling mean and standard deviation
             padded_stats['rolling_mean'] = padded_stats['mean'].rolling(window=window_size, center=True, min_periods=1).mean()
             padded_stats['rolling_std'] = padded_stats['mean'].rolling(window=window_size, center=True, min_periods=1).std()
-
-            logging.info(f'\n\nrolling stats df: \n\n {padded_stats}\n\n\n')
 
             padded_stats['lower_bound'] = padded_stats['rolling_mean'] - boundary_sensitivity * padded_stats['rolling_std']
             padded_stats['upper_bound'] = padded_stats['rolling_mean'] + boundary_sensitivity * padded_stats['rolling_std']
@@ -416,17 +406,9 @@ async def gather_anomaly_data(data_source, table, kpi, fltr, trusted_sql, compar
         trusted_results = format_results_data(trusted_results)
         comparison_results = format_results_data(comparison_results)
 
-        logging.info(f'\n\nTrusted Results: \n\n{trusted_results}\n\n\n Comparison Results: \n\n{comparison_results}\n\n\n')
-
         # Create trusted and comparison dataframes
         trusted_df = pd.DataFrame(trusted_results, columns=["value", "month"])
         comparison_df = pd.DataFrame(comparison_results, columns=["value", "month"])
-
-        # Clean data in DataFrames
-        #trusted_df = clean_dataframe(trusted_df)
-        #comparison_df = clean_dataframe(comparison_df)
-
-        logging.info(f'\n\nTrusted DF: \n\n{trusted_df}\n\n\n Comparison DF: \n\n{comparison_df}\n\n\n')
 
         # Calculate the corridors using trusted dataframe (use monthly averages for corridors mode 1)
         if corridors_mode == 1:
@@ -438,18 +420,12 @@ async def gather_anomaly_data(data_source, table, kpi, fltr, trusted_sql, compar
         if not corridors:
             logging.error('calculate_corridors() has returned a null value')
             return None
-        
-        logging.info(f'\n\nCorridors: \n\n{corridors}\n\n\n')
 
         # Take the last year of trusted data (for use in graph)
         trusted_df = trusted_df.tail(12)
 
-        logging.info(f'\n\nTrusted DF after formatting (for use in graph): \n\n{trusted_df}\n\n\n')
-
         # Look for anomalies in comparison data
         anomalies = detect_anomalies(comparison_df, corridors)
-
-        logging.info(f'\n\nAnomalies: \n\n{anomalies}\n\n\n')
 
         if anomalies.empty:
             logging.error('detect_anomalies() has returned a null value')
@@ -502,9 +478,11 @@ async def perform_anomaly_check():
         # Create a connection to the user's database
         db = os.getenv('DatabaseType', 'postgresql').lower()
         db_params = await connectors.get_db_param(db)
-        conn = await connectors.get_connector(db, **db_params)
-        if conn:
+        try:
+            conn = await connectors.get_connector(db, **db_params)
             logging.info("Successfully connected to database.")
+        except:
+            logging.error("Unable to connect to database.")
 
         # Loop through the KPI arguments
         anomaly_messages = []
@@ -516,8 +494,7 @@ async def perform_anomaly_check():
                     trusted_sql, comparison_sql = await send_nl_prompt(kpi)
                     if not trusted_sql or not comparison_sql:
                         continue
-                    logging.info(f'\n\nTrusted SQL:\n\n{trusted_sql}')
-                    logging.info(f'\n\nComparison SQL:\n\n{comparison_sql}')
+
                     # Query databases, perform checks and gather responses
                     responses = await gather_anomaly_data(data_source, table, kpi, None, trusted_sql, comparison_sql, db, conn)
                     anomaly_messages.append(responses)
@@ -526,8 +503,7 @@ async def perform_anomaly_check():
                             trusted_sql, comparison_sql = await send_nl_prompt(kpi, fltr)
                             if not trusted_sql or not comparison_sql:
                                 continue
-                            logging.info(f'\n\nTrusted SQL:\n\n{trusted_sql}')
-                            logging.info(f'\n\nComparison SQL:\n\n{comparison_sql}')
+
                             responses = await gather_anomaly_data(data_source, table, kpi, fltr, trusted_sql, comparison_sql, db, conn)
                             anomaly_messages.append(responses)
 
