@@ -114,7 +114,7 @@ async def send_nl_prompt(kpi_arg, fltr=''):
             else:
                 message = f'{kpi_arg} in {year} by month'
             messages.append(message)
-            logging.info(message)
+            logging.info(f'NL message: {message}')
             
         # Send messages and gather relevant SQL queries
         responses = await asyncio.gather(*(api_post(msg) for msg in messages))
@@ -203,8 +203,22 @@ def calculate_corridors(df, window_size=5):
             x = padded_stats['month'].values
             y_lower = padded_stats['lower_bound'].values
             y_upper = padded_stats['upper_bound'].values
-            lower_spline = UnivariateSpline(x, y_lower, k=3, s=None)
-            upper_spline = UnivariateSpline(x, y_upper, k=3, s=None)
+
+            # Determine a suitable smoothing parameter based on the range of values
+            data_range = df['value'].max() - df['value'].min()
+            smoothing_factor = len(x) * (data_range ** 2) * 0.01  # Adjust this scaling factor as needed
+
+            try:
+                lower_spline = UnivariateSpline(x, y_lower, k=3, s=smoothing_factor)
+            except Exception as e:
+                logging.error(f'Error creating lower spline: {e}')
+                lower_spline = UnivariateSpline(x, y_lower, k=3, s=smoothing_factor * 1.5)
+
+            try:
+                upper_spline = UnivariateSpline(x, y_upper, k=3, s=smoothing_factor)
+            except Exception as e:
+                logging.error(f'Error creating upper spline: {e}')
+                upper_spline = UnivariateSpline(x, y_upper, k=3, s=smoothing_factor * 1.5)
 
             # Remove padding rows
             padded_stats = padded_stats[(padded_stats['month'] >= 1) & (padded_stats['month'] <= 12)].reset_index(drop=True)
@@ -266,7 +280,7 @@ def calculate_monthly_averages(df):
         return monthly_averages
     
     except Exception as e:
-        logging.info(f'Failed to calculate monthly averages: {e}')
+        logging.error(f'Failed to calculate monthly averages: {e}')
         return pd.DataFrame()  # Return an empty DataFrame in case of error
 
 
@@ -428,12 +442,11 @@ async def gather_anomaly_data(data_source, table, kpi, fltr, trusted_sql, compar
         anomalies = detect_anomalies(comparison_df, corridors)
 
         if anomalies.empty:
-            logging.error('detect_anomalies() has returned a null value')
+            logging.info(f'No anomalies detected for {kpi}')
             return None
 
         # Generate prompt and send to GPT
         system_message = f"""{os.getenv('SystemMessage', 'You are an intelligent data analyzer who will be given trusted data and comparison data. You must give potential reasons to why anomalies are detected in the data based on their KPI names.')}"""
-        logging.info(system_message)
         if fltr:
             user_message = f"KPI: {kpi}, Filtered by: {fltr}, Trusted Data: {trusted_df}, Comparison Data: {comparison_df}, Anomalies Detected: {anomalies}, Sensetivity: {os.getenv('BoundarySensetivity' '2.0')}"
         else:
@@ -478,11 +491,14 @@ async def perform_anomaly_check():
         # Create a connection to the user's database
         db = os.getenv('DatabaseType', 'postgresql').lower()
         db_params = await connectors.get_db_param(db)
+        conn = None
         try:
             conn = await connectors.get_connector(db, **db_params)
             logging.info("Successfully connected to database.")
         except:
             logging.error("Unable to connect to database.")
+            # re-raise exception to break out of parent try: block
+            raise
 
         # Loop through the KPI arguments
         anomaly_messages = []
@@ -523,12 +539,11 @@ async def perform_anomaly_check():
     
     finally:
         if conn:
-            conn.close() 
+            await conn.close() 
 
 
 def send_email(anomaly_messages, tables):
     '''Function to prepare message and send email to user'''
-    logging.info(f"Anomaly messages: {anomaly_messages}, Tables: {tables}")
     try:
         msg = MIMEMultipart()
         msg['Subject'] = "Anomaly Detection Report"
