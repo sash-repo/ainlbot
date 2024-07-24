@@ -28,10 +28,10 @@ Docker env params:
 -   AuthTenantID (_Optional_)
 -   AppPassword
 -   StaticEndPoint
--   client*email (\_Used when DataSource='bigquery'*)
--   token*uri (\_Used when DataSource='bigquery'*)
--   private*key (\_Used when DataSource='bigquery'*)
--   project*id (\_Used when DataSource='bigquery'*)
+-   client_email (\_Used when DataSource='bigquery'*)
+-   token_uri (\_Used when DataSource='bigquery'*)
+-   private_key (\_Used when DataSource='bigquery'*)
+-   project_id (\_Used when DataSource='bigquery'*)
 -   FromYear (_Starting year from which to measure trusted data_)
 -   ToYear (_The final year up to which trusted data is measured (inclusive)_)
 -   CorridorsMode (_1 = standard mode (flat corridors over given time period, minimum 1 year of data); 2 = seasonal mode (monthly calculated corridors, minimum 2 years' of data)_)
