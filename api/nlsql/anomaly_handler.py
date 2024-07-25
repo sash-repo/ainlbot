@@ -204,8 +204,21 @@ def calculate_corridors(df, window_size=5):
             y_lower = padded_stats['lower_bound'].values
             y_upper = padded_stats['upper_bound'].values
 
-            lower_spline = UnivariateSpline(x, y_lower, k=3, s=1.5)
-            upper_spline = UnivariateSpline(x, y_upper, k=3, s=1.5)
+            # Determine a suitable smoothing parameter based on the range of values
+            data_range = df['value'].max() - df['value'].min()
+            smoothing_factor = len(x) * (data_range ** 2) * 0.01  # Adjust this scaling factor as needed
+
+            try:
+                lower_spline = UnivariateSpline(x, y_lower, k=3, s=smoothing_factor)
+            except Exception as e:
+                logging.error(f'Error creating lower spline: {e}')
+                lower_spline = UnivariateSpline(x, y_lower, k=3, s=smoothing_factor * 1.5)
+
+            try:
+                upper_spline = UnivariateSpline(x, y_upper, k=3, s=smoothing_factor)
+            except Exception as e:
+                logging.error(f'Error creating upper spline: {e}')
+                upper_spline = UnivariateSpline(x, y_upper, k=3, s=smoothing_factor * 1.5)
 
             # Remove padding rows
             padded_stats = padded_stats[(padded_stats['month'] >= 1) & (padded_stats['month'] <= 12)].reset_index(drop=True)
