@@ -410,6 +410,7 @@ async def gather_anomaly_data(data_source, table, kpi, fltr, trusted_sql, compar
     '''Function to gather all anomaly data, response messages and graphs'''
     try:
         # Perform SQL queries to obtain results
+
         trusted_results = []
         for query in trusted_sql:
             result = await connectors.do_query(db, conn, query)
@@ -479,7 +480,7 @@ async def gather_anomaly_data(data_source, table, kpi, fltr, trusted_sql, compar
 
     except Exception as e:
         logging.error(f'An error occured in gather_anomaly_data(): {e}')
-        return None               
+        raise        
 
 
 async def perform_anomaly_check():
