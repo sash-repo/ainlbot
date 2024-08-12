@@ -168,7 +168,7 @@ def clean_dataframe(df):
     return df
 
 
-def calculate_corridors(df, window_size=5):
+def calculate_corridors(df):
     '''Function to calculate the upper and lower bounds for anomaly detection
        - if corridors_mode == 2 returns a nested list of lower and upper bounds for each month
        - if corridors_mode == 1 returns a list containing lower and upper boundaries'''
@@ -177,6 +177,12 @@ def calculate_corridors(df, window_size=5):
         boundary_sensitivity = float(os.getenv('BoundarySensitivity', '2.0'))
 
         if corridors_mode == 2:
+            # Get user's desired window size for rolling window
+            try:
+                window_size = int(os.getenv('WindowSize', 5))
+            except ValueError:
+                window_size = 5
+
             # Group by month and calculate the mean and std value
             monthly_stats = df.groupby('month')['value'].agg(['mean', 'std']).reset_index()
 
