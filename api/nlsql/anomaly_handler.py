@@ -180,6 +180,12 @@ def calculate_corridors(df):
             # Get user's desired window size for rolling window
             try:
                 window_size = int(os.getenv('WindowSize', 5))
+                if window_size > 9:
+                    logging.warning(f"A window size of {window_size} is too large and likely to produce undesirable results. The window size has been capped at 9.")
+                    window_size = 9
+                elif window_size < 3:
+                    logging.warning(f"A window size of {window_size} is too small and likely to produce undesirable results. The window size has been capped at 3.")
+                    window_size = 3
             except ValueError:
                 window_size = 5
 
@@ -189,14 +195,14 @@ def calculate_corridors(df):
             # Add padding wrap-around for edge cases
             previous_december = monthly_stats.iloc[-1:].copy()
             previous_december['month'] = 0
-            previous_november = monthly_stats.iloc[-2:].copy()
-            previous_november['month'] = -1
             next_january = monthly_stats.iloc[:1].copy()
             next_january['month'] = 13
-            next_febuary = monthly_stats.iloc[:2].copy()
-            next_febuary['month'] = 14
-            
-            padded_stats = pd.concat([previous_december, monthly_stats, next_january]).reset_index(drop=True)
+
+            # Concatenate all padded months into a single DataFrame
+            padded_stats = pd.concat([previous_december, monthly_stats, next_january], ignore_index=True).reset_index(drop=True)
+
+            # Re-index the months to avoid negative numbers
+            padded_stats = padded_stats.sort_values(by='month').reset_index(drop=True)
 
             # Calculate rolling mean and standard deviation
             padded_stats['rolling_mean'] = padded_stats['mean'].rolling(window=window_size, center=True, min_periods=1).mean()
@@ -212,7 +218,7 @@ def calculate_corridors(df):
 
             # Determine a suitable smoothing parameter based on the range of values
             data_range = df['value'].max() - df['value'].min()
-            smoothing_factor = len(x) * (data_range ** 1.5) * 0.5  # Adjust this scaling factor as needed
+            smoothing_factor = len(x) * (data_range ** 1.5) * 0.5 # Adjust this scaling factor as needed
 
             try:
                 lower_spline = UnivariateSpline(x, y_lower, k=5, s=smoothing_factor)
@@ -449,7 +455,10 @@ async def gather_anomaly_data(data_source, table, kpi, fltr, trusted_sql, compar
         anomalies = detect_anomalies(comparison_df, corridors)
 
         if anomalies.empty:
-            logging.info(f'No anomalies detected for {kpi}')
+            if fltr:
+                logging.info(f'No anomalies detected for {kpi} by {fltr}')
+            else:
+                logging.info(f'No anomalies detected for {kpi}')
             return None
 
         # Generate prompt and send to GPT
