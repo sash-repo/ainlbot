@@ -211,6 +211,8 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                 }
     data_type = api_response.get('data_type', '')
     sql = api_response.get('sql', '')
+    if not sql:
+        sql = api_response.get('sql-final', '')
     message = api_response.get('message', '')
     unaccounted = api_response.get('unaccounted', None)
     list_of_elements = []
