@@ -211,7 +211,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                 }
     data_type = api_response.get('data_type', '')
     sql = api_response.get('sql', '')
-    if not sql:
+    if sql == '':
         sql = api_response.get('sql-final', '')
     message = api_response.get('message', '')
     unaccounted = api_response.get('unaccounted', None)
@@ -373,7 +373,8 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                         escape_rule = "\\"
                     _special_chars_map = {i: escape_rule + chr(i) for i in b"'"}
                     if data_type in ["graph-complex", "scatter-complex", "bubble-complex"]:
-                        filtered_elements = list_of_elements[graph_range-5:graph_range]
+                        start_index = max(0, graph_range - 20)
+                        filtered_elements = list_of_elements[start_index:graph_range]
                     else:
                         filtered_elements = list_of_elements
                     for el in filtered_elements:
