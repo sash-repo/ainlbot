@@ -221,7 +221,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
     system_buttons = api_response.get('system_buttons', '')
     indicator = api_response.get('indicator', '')
     if type(sql) == dict:
-        graph_range: int = sql.get("range", 5)
+        graph_range: int = sql.get("range", 20)
     else:
         graph_range = 0
     addition_buttons = api_response.get('addition_buttons', None)
