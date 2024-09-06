@@ -12,6 +12,7 @@ import logging
 from . import graph
 from .nlsql_typing import Buttons, NLSQLAnswer
 
+logging.basicConfig(level=logging.INFO)
 
 async def create_addition_buttons(answer, count='20') -> Union[List[Buttons], None]:
     if type(answer) == list:
