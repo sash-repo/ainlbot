@@ -7,6 +7,7 @@ from json.decoder import JSONDecodeError
 import requests
 from botbuilder.schema import ActionTypes
 from .connectors import connectors
+import logging
 
 from . import graph
 from .nlsql_typing import Buttons, NLSQLAnswer
@@ -209,10 +210,9 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                 'card_data': None,
                 'buttons': None
                 }
+    logging.info(f"API Response: {api_response}")
     data_type = api_response.get('data_type', '')
     sql = api_response.get('sql', '')
-    if sql == '':
-        sql = api_response.get('sql-final', '')
     message = api_response.get('message', '')
     unaccounted = api_response.get('unaccounted', None)
     list_of_elements = []
@@ -221,7 +221,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
     system_buttons = api_response.get('system_buttons', '')
     indicator = api_response.get('indicator', '')
     if type(sql) == dict:
-        graph_range: int = sql.get("range", 20)
+        graph_range: int = sql.get("range", 5)
     else:
         graph_range = 0
     addition_buttons = api_response.get('addition_buttons', None)
@@ -373,8 +373,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                         escape_rule = "\\"
                     _special_chars_map = {i: escape_rule + chr(i) for i in b"'"}
                     if data_type in ["graph-complex", "scatter-complex", "bubble-complex"]:
-                        start_index = max(0, graph_range - 20)
-                        filtered_elements = list_of_elements[start_index:graph_range]
+                        filtered_elements = list_of_elements[graph_range-5:graph_range]
                     else:
                         filtered_elements = list_of_elements
                     for el in filtered_elements:
