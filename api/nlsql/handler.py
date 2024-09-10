@@ -420,7 +420,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                 if addition_buttons:
                     if data_type in ["graph-complex", "scatter-complex", "bubble-complex"] and len(list_of_elements) > graph_range:
                         logging.info(f"Data-Type: {data_type}, Graph Range: {graph_range}\n\n")
-                        addition_buttons = await create_addition_buttons(addition_buttons, '5')
+                        addition_buttons = await create_addition_buttons(addition_buttons, '10')
                     elif (len(result) >= 20 and db_type not in ["bar-stacked", "bar-grouped"]) \
                             or (db_type in ["bar-stacked", "bar-grouped"]
                                 and len(result.get('column2')) >= 20):
