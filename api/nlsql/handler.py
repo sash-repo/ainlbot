@@ -15,6 +15,8 @@ from .nlsql_typing import Buttons, NLSQLAnswer
 logging.basicConfig(level=logging.INFO)
 
 async def create_addition_buttons(answer, count='20') -> Union[List[Buttons], None]:
+    logging.info(f"Answer: {answer}\n\n")
+    logging.info(f"Count: {count}\n\n")
     if type(answer) == list:
         buttons = [{'type': ActionTypes.im_back, 'title': title, 'value': title} for title in answer]
     else:
@@ -211,7 +213,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                 'card_data': None,
                 'buttons': None
                 }
-    logging.info(f"API Response: {api_response}")
+    logging.info(f"API Response: {api_response}\n\n")
     data_type = api_response.get('data_type', '')
     sql = api_response.get('sql', '')
     message = api_response.get('message', '')
@@ -378,7 +380,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                         filtered_elements = list_of_elements[start_index:graph_range]
 
                         logging.info(f"Elements List: {list_of_elements}\n\n")
-                        logging.info(f"Filtered List: {filtered_elements}")
+                        logging.info(f"Filtered List: {filtered_elements}\n\n")
                         # filtered_elements = list_of_elements[graph_range-5:graph_range]
                     else:
                         filtered_elements = list_of_elements
@@ -417,7 +419,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
             else:
                 if addition_buttons:
                     if data_type in ["graph-complex", "scatter-complex", "bubble-complex"] and len(list_of_elements) > graph_range:
-                        logging.info(f"Data-Type = {data_type}, Graph Range: {graph_range}")
+                        logging.info(f"Data-Type: {data_type}, Graph Range: {graph_range}\n\n")
                         addition_buttons = await create_addition_buttons(addition_buttons, '5')
                     elif (len(result) >= 20 and db_type not in ["bar-stacked", "bar-grouped"]) \
                             or (db_type in ["bar-stacked", "bar-grouped"]
