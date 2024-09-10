@@ -376,12 +376,12 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                         escape_rule = "\\"
                     _special_chars_map = {i: escape_rule + chr(i) for i in b"'"}
                     if data_type in ["graph-complex", "scatter-complex", "bubble-complex"]:
-                        start_index = max(0, graph_range - 20)
-                        filtered_elements = list_of_elements[start_index:graph_range]
+                        # start_index = max(0, graph_range - 20)
+                        # filtered_elements = list_of_elements[start_index:graph_range]
 
                         logging.info(f"Elements List: {list_of_elements}\n\n")
+                        filtered_elements = list_of_elements[graph_range-10:graph_range]
                         logging.info(f"Filtered List: {filtered_elements}\n\n")
-                        # filtered_elements = list_of_elements[graph_range-5:graph_range]
                     else:
                         filtered_elements = list_of_elements
                     for el in filtered_elements:
