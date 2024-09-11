@@ -14,6 +14,9 @@ from .nlsql_typing import Buttons, NLSQLAnswer
 
 logging.basicConfig(level=logging.INFO)
 
+# List of elements global variable to store additional elements for addition button presses
+list_of_elements = []
+
 async def create_addition_buttons(answer, count='20') -> Union[List[Buttons], None]:
     logging.info(f"Answer: {answer}\n\n")
     logging.info(f"Count: {count}\n\n")
@@ -198,6 +201,8 @@ async def create_complex_buttons(result: List[Union[str, Dict]], channel):
 
 # main function to parse request
 async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
+    global list_of_elements
+
     if channel_id == 'msteams':
         text = text.replace('\u200b', '')
     try:
@@ -214,6 +219,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                 'buttons': None
                 }
     logging.info(f"API Response: {api_response}\n\n")
+    logging.info(f"List of Elements: {list_of_elements}\n\n")
     data_type = api_response.get('data_type', '')
     sql = api_response.get('sql', '')
     message = api_response.get('message', '')
@@ -364,7 +370,10 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
             stacked_bar_mod = True if data_type in ["bar-stacked", "bar-grouped"] else False
 
             if data_type in ["graph-complex", "scatter-complex", "bubble-complex"]:
-                list_of_elements = await connectors.do_query(db_type, conn, sql.get('sql-get-elements'))
+                global list_of_elements
+                # Populate list of elements if it doesn't already contain elements
+                if not list_of_elements:
+                    list_of_elements = await connectors.do_query(db_type, conn, sql.get('sql-get-elements'))
                 if not list_of_elements or (type(list_of_elements) != dict and None in list_of_elements[0]):
                     result = []
                 else:
@@ -376,14 +385,15 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                         escape_rule = "\\"
                     _special_chars_map = {i: escape_rule + chr(i) for i in b"'"}
                     if data_type in ["graph-complex", "scatter-complex", "bubble-complex"]:
-                        # start_index = max(0, graph_range - 20)
-                        # filtered_elements = list_of_elements[start_index:graph_range]
-
+                        # Get first 10 elements from list
+                        filtered_elements = list_of_elements[:graph_range]
+                        # Remove first 10 elements from list
+                        list_of_elements = list_of_elements[graph_range:]
                         logging.info(f"Elements List: {list_of_elements}\n\n")
-                        filtered_elements = list_of_elements[graph_range-10:graph_range]
                         logging.info(f"Filtered List: {filtered_elements}\n\n")
                     else:
                         filtered_elements = list_of_elements
+                        list_of_elements = []
                     for el in filtered_elements:
                         escaping_el = str(el[0]).translate(_special_chars_map)
                         result_element = await connectors.do_query(db_type, conn, sql.format(escaping_el),
@@ -418,7 +428,13 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                         }
             else:
                 if addition_buttons:
-                    if data_type in ["graph-complex", "scatter-complex", "bubble-complex"] and len(list_of_elements) > graph_range:
+                    if data_type in ["graph-complex", "scatter-complex", "bubble-complex"] and list_of_elements:
+                        if len(list_of_elements) > 10:
+                            n = 10
+                        else:
+                            n = len(list_of_elements)
+                        addition_buttons = await create_addition_buttons(addition_buttons, n)
+                    elif data_type in ["graph-complex", "scatter-complex", "bubble-complex"] and len(list_of_elements) > graph_range:
                         logging.info(f"Data-Type: {data_type}, Graph Range: {graph_range}\n\n")
                         addition_buttons = await create_addition_buttons(addition_buttons, '10')
                     elif (len(result) >= 20 and db_type not in ["bar-stacked", "bar-grouped"]) \
