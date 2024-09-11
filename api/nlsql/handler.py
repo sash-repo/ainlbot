@@ -14,8 +14,7 @@ from .nlsql_typing import Buttons, NLSQLAnswer
 
 logging.basicConfig(level=logging.INFO)
 
-# List of elements global variable to store additional elements for addition button presses
-list_of_elements = []
+
 
 async def create_addition_buttons(answer, count='20') -> Union[List[Buttons], None]:
     logging.info(f"Answer: {answer}\n\n")
@@ -198,7 +197,8 @@ async def create_complex_buttons(result: List[Union[str, Dict]], channel):
         return buttons
     return None
 
-
+# List of elements global variable to store additional elements for addition button presses
+list_of_elements = []
 # main function to parse request
 async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
     global list_of_elements
@@ -224,7 +224,6 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
     sql = api_response.get('sql', '')
     message = api_response.get('message', '')
     unaccounted = api_response.get('unaccounted', None)
-    list_of_elements = []
     if not unaccounted:
         unaccounted = None
     system_buttons = api_response.get('system_buttons', '')
@@ -370,7 +369,6 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
             stacked_bar_mod = True if data_type in ["bar-stacked", "bar-grouped"] else False
 
             if data_type in ["graph-complex", "scatter-complex", "bubble-complex"]:
-                global list_of_elements
                 # Populate list of elements if it doesn't already contain elements
                 if not list_of_elements:
                     list_of_elements = await connectors.do_query(db_type, conn, sql.get('sql-get-elements'))
