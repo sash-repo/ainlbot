@@ -199,9 +199,11 @@ async def create_complex_buttons(result: List[Union[str, Dict]], channel):
 
 # List of elements global variable to store additional elements for addition button presses
 list_of_elements = []
+previous_add_btn = ''
 # main function to parse request
 async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
     global list_of_elements
+    global previous_add_btn
 
     if channel_id == 'msteams':
         text = text.replace('\u200b', '')
@@ -236,7 +238,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
     addition_buttons = api_response.get('addition_buttons', None)
     if not addition_buttons:
         addition_buttons = None
-
+    logging.info(f"Addition Buttons: {addition_buttons}")
     # Check db connection params
     db_type = os.getenv('DatabaseType', 'mysql')
     if db_type:
@@ -371,7 +373,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
 
             if data_type in ["graph-complex", "scatter-complex", "bubble-complex"]:
                 # Check message is for next graph or empty the elements list.
-                if "{{{" not in text:
+                if addition_buttons != previous_add_btn and list_of_elements:
                     list_of_elements = []
                 # Populate list of elements if it doesn't already contain elements
                 if not list_of_elements:
@@ -432,6 +434,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                 if addition_buttons:
                     if data_type in ["graph-complex", "scatter-complex", "bubble-complex"] and list_of_elements:
                         if len(list_of_elements) > 10:
+                            previous_add_btn = addition_buttons
                             n = 10
                         else:
                             n = len(list_of_elements)
