@@ -220,6 +220,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                 }
     logging.info(f"API Response: {api_response}\n\n")
     logging.info(f"List of Elements: {list_of_elements}\n\n")
+    logging.info(f"Text: {text}\n\n")
     data_type = api_response.get('data_type', '')
     sql = api_response.get('sql', '')
     message = api_response.get('message', '')
@@ -369,6 +370,9 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
             stacked_bar_mod = True if data_type in ["bar-stacked", "bar-grouped"] else False
 
             if data_type in ["graph-complex", "scatter-complex", "bubble-complex"]:
+                # Check message is for next graph or empty the elements list.
+                if "{{{" not in text:
+                    list_of_elements = []
                 # Populate list of elements if it doesn't already contain elements
                 if not list_of_elements:
                     list_of_elements = await connectors.do_query(db_type, conn, sql.get('sql-get-elements'))
