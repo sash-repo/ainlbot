@@ -239,6 +239,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
     if not addition_buttons:
         addition_buttons = None
     logging.info(f"Addition Buttons: {addition_buttons}")
+    logging.info(f"Previous addition buttons: {previous_add_btn}")
     # Check db connection params
     db_type = os.getenv('DatabaseType', 'mysql')
     if db_type:
