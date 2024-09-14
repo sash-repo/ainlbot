@@ -439,6 +439,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                             n = 10
                         else:
                             n = len(list_of_elements)
+                            previous_add_btn = addition_buttons
                         addition_buttons = await create_addition_buttons(addition_buttons, n)
                     elif data_type in ["graph-complex", "scatter-complex", "bubble-complex"] and len(list_of_elements) > graph_range:
                         logging.info(f"Data-Type: {data_type}, Graph Range: {graph_range}\n\n")
