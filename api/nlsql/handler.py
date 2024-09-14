@@ -220,6 +220,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                 'card_data': None,
                 'buttons': None
                 }
+    logging.info(f"Channel ID: {channel_id}")
     logging.info(f"API Response: {api_response}\n\n")
     logging.info(f"List of Elements: {list_of_elements}\n\n")
     logging.info(f"Text: {text}\n\n")
