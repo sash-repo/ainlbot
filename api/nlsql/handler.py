@@ -375,7 +375,7 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
 
             if data_type in ["graph-complex", "scatter-complex", "bubble-complex"]:
                 # Check message is for next graph or empty the elements list.
-                if addition_buttons != previous_add_btn and list_of_elements:
+                if text.replace(" ", "") != previous_add_btn.replace(" ", "") and list_of_elements:
                     list_of_elements = []
                 # Populate list of elements if it doesn't already contain elements
                 if not list_of_elements:
