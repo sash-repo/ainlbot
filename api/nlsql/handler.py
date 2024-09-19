@@ -198,8 +198,8 @@ async def create_complex_buttons(result: List[Union[str, Dict]], channel):
     return None
 
 # List of elements global variable to store additional elements for addition button presses
-list_of_elements = []
-previous_add_btn = ''
+# list_of_elements = []
+# previous_add_btn = ''
 # main function to parse request
 async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
     global list_of_elements
@@ -392,10 +392,11 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                     _special_chars_map = {i: escape_rule + chr(i) for i in b"'"}
                     if data_type in ["graph-complex", "scatter-complex", "bubble-complex"]:
                         # Get first 10 elements from list
-                        filtered_elements = list_of_elements[:graph_range]
-                        # Remove first 10 elements from list
-                        list_of_elements = list_of_elements[graph_range:]
-                        logging.info(f"Elements List: {list_of_elements}\n\n")
+                        filtered_elements = list_of_elements[graph_range-10:graph_range]
+                        # filtered_elements = list_of_elements[:graph_range]
+                        # # Remove first 10 elements from list
+                        # list_of_elements = list_of_elements[graph_range:]
+                        # logging.info(f"Elements List: {list_of_elements}\n\n")
                         logging.info(f"Filtered List: {filtered_elements}\n\n")
                     else:
                         filtered_elements = list_of_elements
