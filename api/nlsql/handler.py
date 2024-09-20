@@ -202,8 +202,8 @@ async def create_complex_buttons(result: List[Union[str, Dict]], channel):
 # previous_add_btn = ''
 # main function to parse request
 async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
-    global list_of_elements
-    global previous_add_btn
+    # global list_of_elements
+    # global previous_add_btn
 
     if channel_id == 'msteams':
         text = text.replace('\u200b', '')
@@ -220,10 +220,6 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
                 'card_data': None,
                 'buttons': None
                 }
-    logging.info(f"Channel ID: {channel_id}")
-    logging.info(f"API Response: {api_response}\n\n")
-    logging.info(f"List of Elements: {list_of_elements}\n\n")
-    logging.info(f"Text: {text}\n\n")
     data_type = api_response.get('data_type', '')
     sql = api_response.get('sql', '')
     message = api_response.get('message', '')
@@ -239,8 +235,6 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
     addition_buttons = api_response.get('addition_buttons', None)
     if not addition_buttons:
         addition_buttons = None
-    logging.info(f"Addition Buttons: {addition_buttons}")
-    logging.info(f"Previous addition buttons: {previous_add_btn}")
     # Check db connection params
     db_type = os.getenv('DatabaseType', 'mysql')
     if db_type:
@@ -375,11 +369,11 @@ async def parsing_text(channel_id: str, text: str) -> NLSQLAnswer:
 
             if data_type in ["graph-complex", "scatter-complex", "bubble-complex"]:
                 # Check message is for next graph or empty the elements list.
-                if text.replace(" ", "") != previous_add_btn.replace(" ", "") and list_of_elements:
-                    list_of_elements = []
+                # if text.replace(" ", "") != previous_add_btn.replace(" ", "") and list_of_elements:
+                #     list_of_elements = []
                 # Populate list of elements if it doesn't already contain elements
-                if not list_of_elements:
-                    list_of_elements = await connectors.do_query(db_type, conn, sql.get('sql-get-elements'))
+                # if not list_of_elements:
+                list_of_elements = await connectors.do_query(db_type, conn, sql.get('sql-get-elements'))
                 if not list_of_elements or (type(list_of_elements) != dict and None in list_of_elements[0]):
                     result = []
                 else:
