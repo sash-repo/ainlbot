@@ -611,9 +611,17 @@ def send_email(anomaly_messages, tables):
 async def main():
     # Script will run in background with asyncio and repeat as per user's "Frequency" (in days) environment variable (86400 = 1 day) 
     while True:
-        days = int(os.getenv('Frequency', '1'))
+        days = os.getenv('Frequency', '1')
         try:
-            await perform_anomaly_check()
+            days = int(days)
+        except ValueError:
+            days = 1
+            logging.warning("'Frequency' variable must have a valid numeric input, defaulting to frequency of 1 day.")
+        try:
+            if EMAIL_ADDRESS:
+                await perform_anomaly_check()
+            else:
+                logging.info(f"Anomaly detection is not running, please provide an email address and other relevant environment variables... ")
             await asyncio.sleep(86400 * days) # Repeat every n days
         except asyncio.CancelledError:
             break
